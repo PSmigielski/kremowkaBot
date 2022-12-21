@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  bot:
+    env_file:
+      - ./.env
+    image: bot:1.0
+    command: "npm start"
+    restart: "always"
