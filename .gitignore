@@ -1,3 +1,4 @@
-node_modules
+/bot/node_modules
 result
-.idea
+bot/.idea
+bot/.env
