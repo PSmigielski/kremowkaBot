@@ -37,6 +37,7 @@ module.exports = {
                         interaction,
                     }
                     const string = interaction.options.get("option")?.value as string;
+                    console.log(client.disTube.options.searchSongs);
                     await client.disTube.play(channel, string, options)
                 } catch (e) {
                     console.log(e);

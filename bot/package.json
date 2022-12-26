@@ -17,13 +17,14 @@
     "@distube/soundcloud": "^1.3.0",
     "@distube/spotify": "^1.5.1",
     "@distube/yt-dlp": "^1.1.3",
+    "@distube/ytsr": "^1.1.9",
     "discord.js": "^14.7.1",
     "distube": "^4.0.4",
     "dotenv": "^16.0.3",
-    "sodium": "^3.0.2",
-    "ytdl-core": "^4.11.2",
     "libsodium-wrappers": "^0.7.10",
-    "sodium-native": "^3.4.1"
+    "sodium": "^3.0.2",
+    "sodium-native": "^3.4.1",
+    "ytdl-core": "^4.11.2"
   },
   "devDependencies": {
     "@types/node": "^18.11.17",

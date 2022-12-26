@@ -30,7 +30,7 @@ export class DiscordBot extends Client{
         leaveOnFinish: false,
         emitNewSongOnly: true,
         plugins: [new YtDlpPlugin({update: true}), new SoundCloudPlugin(), new SpotifyPlugin()],
-        searchSongs: 5,
+        searchSongs: 10,
         youtubeCookie: process.env.YOUTUBE_COOKIE as string
     }
     constructor() {
@@ -128,6 +128,7 @@ export class DiscordBot extends Client{
     }
     private onSearchResult(): void {
         this.disTube.on('searchResult', (message: Message, result: Array<SearchResult>) => {
+            console.log("dupa");
             let i = 0;
             message.channel.send(
                 `**Choose an option from below**\n${result
