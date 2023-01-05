@@ -136,13 +136,11 @@ export class DiscordBot extends Client{
     private onGuildCreate() {
         this.on("guildCreate", async guild => {
             await this.databaseService.pushGuild(guild.id);
-            console.log(await this.databaseService.getGuildIds());
         });
     }
     private onGuildDelete() {
         this.on("guildDelete", async guild => {
             await this.databaseService.removeGuild(guild.id);
-            console.log(await this.databaseService.getGuildIds());
         });
     }
     private onSearchCancel(): void {
