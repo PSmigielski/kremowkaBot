@@ -1,4 +1,4 @@
-import DisTube, {DisTubeOptions, Playlist, SearchResult} from "distube";
+import DisTube, {DisTubeOptions, Playlist} from "distube";
 import {
     Client,
     Collection, EmbedBuilder,
@@ -17,12 +17,13 @@ import {CommandType} from "../types/CommandType";
 import path from "node:path";
 import fs from "node:fs";
 import { Queue,  Song} from "distube";
+import DBService from "../services/DBService";
 export class DiscordBot extends Client{
     public disTube: DisTube;
     public token: string;
     private commands: Collection<string, CommandType>
-    private clientId: string;
-    private guildIds: Array<string>;
+    private guildIds: Array<string> | undefined;
+    private databaseService: DBService;
     private disTubeOptions: DisTubeOptions = {
         nsfw: true,
         leaveOnEmpty: true,
@@ -40,16 +41,15 @@ export class DiscordBot extends Client{
             IntentsBitField.Flags.GuildMessages,
         ]});
         this.token = process.env.TOKEN as string;
-        this.clientId = process.env.CLIENT_ID as string;
         this.disTube = new DisTube(this, this.disTubeOptions );
-        this.guildIds = ["1055191971980902532"]
         this.commands = new Collection<string, CommandType>()
+        this.databaseService = new DBService(process.env.REDIS_HOST as string, process.env.REDIS_PORT as string);
         this.init();
     }
-    private async registerCommands(){
+    public async loadCommands(){
         const commandsPath = path.join(__dirname, '/../commands');
         const commandFiles = fs.readdirSync(commandsPath);
-        const commands = [];
+
         for (const file of commandFiles) {
             const filePath = path.join(commandsPath, file);
             const command = require(filePath);
@@ -59,7 +59,15 @@ export class DiscordBot extends Client{
                 console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
             }
         }
-        const rest = new REST({ version: '10' }).setToken(this.token);
+    }
+    public static async registerCommands(){
+        const commandsPath = path.join(__dirname, '/../commands');
+        const commandFiles = fs.readdirSync(commandsPath);
+        const commands = [];
+        const databaseService = new DBService(process.env.REDIS_HOST as string, process.env.REDIS_PORT as string);
+        const guildIds = await databaseService.getGuildIds()
+
+        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN as string);
         for (const file of commandFiles) {
             const filePath = path.join(commandsPath, file);
             const command = require(filePath);
@@ -67,37 +75,39 @@ export class DiscordBot extends Client{
         }
         try {
             console.log(`Started refreshing ${commands.length} application (/) commands.`);
-            for (const guildId of this.guildIds) {
+            for (const guildId of guildIds) {
                 const data = await rest.put(
-                    Routes.applicationGuildCommands(this.clientId, guildId),
+                    Routes.applicationGuildCommands(process.env.CLIENT_ID as string, guildId),
                     {body: commands},
                 );
                 // @ts-ignore
-                console.log(`Successfully reloaded ${data.length} application (/) commands.`);
+                console.log(`Successfully reloaded ${data.length} application (/) commands for ${guildId}.`);
             }
         } catch (error) {
             // And of course, make sure you catch and log any errors!
             console.error(error);
         }
+        return;
     }
     private registerDisTubeEvents(){
         this.onError();
         this.onInitQueue();
         this.onPlaySong();
         this.onSearchCancel();
-        this.onSearchResult();
         this.onAddList();
         this.onAddSong()
     }
     private async init(){
-        await this.registerCommands();
-        this.login(this.token);
-        this.registerEvents();
+        await this.loadCommands();
+        await this.login(this.token);
+        await this.registerEvents();
         this.registerDisTubeEvents();
     }
 
     private registerOnceEvent(){
-        this.once(Events.ClientReady, c => {
+        this.once(Events.ClientReady, async c => {
+            this.guilds.cache.map(async guild => await this.databaseService.pushGuild(guild.id as string));
+            this.guildIds = await this.databaseService.getGuildIds()
             console.log(`Ready! Logged in as ${c.user.tag}`);
         });
     }
@@ -117,31 +127,26 @@ export class DiscordBot extends Client{
             }
         });
     }
-    private registerEvents(){
+    private async registerEvents(){
         this.registerOnceEvent();
         this.registerOnEvents();
+        this.onGuildCreate();
+        this.onGuildDelete();
+    }
+    private onGuildCreate() {
+        this.on("guildCreate", async guild => {
+            await this.databaseService.pushGuild(guild.id);
+        });
+    }
+    private onGuildDelete() {
+        this.on("guildDelete", async guild => {
+            await this.databaseService.removeGuild(guild.id);
+        });
     }
     private onSearchCancel(): void {
         this.disTube.on('searchCancel', (message: Message) =>
             message.channel.send(`**Searching canceled**`)
         )
-    }
-    private onSearchResult(): void {
-        this.disTube.on('searchResult', (message: Message, result: Array<SearchResult>) => {
-            console.log("dupa");
-            let i = 0;
-            message.channel.send(
-                `**Choose an option from below**\n${result
-                    .map(
-                        (song: SearchResult) =>
-                            `**${++i}**. ${song.name} 
-                            }\``
-                    )
-                    .join(
-                        '\n'
-                    )}\n*Enter anything else or wait 60 seconds to cancel*`
-            );
-        })
     }
     private status(queue: Queue): string {
         return `Volume: ${queue.volume}% | Filter: ${queue.filters || 'Off'
