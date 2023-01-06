@@ -8,7 +8,7 @@ import {
     IntentsBitField,
     Message,
     REST,
-    Routes
+    Routes, SlashCommandBuilder
 } from "discord.js";
 import { YtDlpPlugin } from "@distube/yt-dlp";
 import { SoundCloudPlugin } from "@distube/soundcloud";
@@ -60,34 +60,38 @@ export class DiscordBot extends Client{
             }
         }
     }
-    public static async registerCommands(){
+    public static async sendCommandsToDisocrd(commands: Array<JSON>, guildId: string){
+        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN as string);
+        const data = await rest.put(
+            Routes.applicationGuildCommands(process.env.CLIENT_ID as string, guildId),
+            {body: commands},
+        );
+        // @ts-ignore
+        console.log(`Successfully reloaded ${data.length} application (/) commands for ${guildId}.`);
+    }
+
+    public static async getCommandDataFromFiles(){
         const commandsPath = path.join(__dirname, '/../commands');
         const commandFiles = fs.readdirSync(commandsPath);
         const commands = [];
-        const databaseService = new DBService(process.env.REDIS_HOST as string, process.env.REDIS_PORT as string);
-        const guildIds = await databaseService.getGuildIds()
-
-        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN as string);
         for (const file of commandFiles) {
             const filePath = path.join(commandsPath, file);
             const command = require(filePath);
             commands.push(command.data.toJSON());
         }
+        return commands;
+    }
+    public static async registerCommands(){
+        const commands = await this.getCommandDataFromFiles();
+        const databaseService = new DBService(process.env.REDIS_HOST as string, process.env.REDIS_PORT as string);
+        const guildIds = await databaseService.getGuildIds()
+
         try {
             console.log(`Started refreshing ${commands.length} application (/) commands.`);
-            for (const guildId of guildIds) {
-                const data = await rest.put(
-                    Routes.applicationGuildCommands(process.env.CLIENT_ID as string, guildId),
-                    {body: commands},
-                );
-                // @ts-ignore
-                console.log(`Successfully reloaded ${data.length} application (/) commands for ${guildId}.`);
-            }
+            for (const guildId of guildIds) await this.sendCommandsToDisocrd(commands, guildId);
         } catch (error) {
-            // And of course, make sure you catch and log any errors!
             console.error(error);
         }
-        return;
     }
     private registerDisTubeEvents(){
         this.onError();
@@ -135,6 +139,8 @@ export class DiscordBot extends Client{
     }
     private onGuildCreate() {
         this.on("guildCreate", async guild => {
+            const commands = await DiscordBot.getCommandDataFromFiles();
+            await DiscordBot.sendCommandsToDisocrd(commands, guild.id);
             await this.databaseService.pushGuild(guild.id);
         });
     }
