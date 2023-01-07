@@ -12,7 +12,7 @@ abstract class Controller {
                     this.router.get(
                         route.path,
                         route.localMiddleware,
-                        route.handler,
+                        route.handler
                     );
                     break;
                 case "POST":
