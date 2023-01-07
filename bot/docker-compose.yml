@@ -9,10 +9,17 @@ services:
     volumes:
       - cache:/data
   db:
-    image: mariadb
-    restart: always
+    image: mariadb:10.2
     environment:
-      MARIADB_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bot
+      MYSQL_USER: bot
+      MYSQL_PASSWORD: 1234
+    restart: on-failure
+    ports:
+      - '3306:3306'
+    volumes:
+      - ${PWD}/docker/mariadb:/var/lib/mysql
 volumes:
   cache:
     driver: local
