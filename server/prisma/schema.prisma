@@ -8,7 +8,7 @@ generator client {
 model Image {
     id     String @id @default(uuid())
     context  String
-    url     String
+    url     String @db.Text
 }
 
 datasource db {
